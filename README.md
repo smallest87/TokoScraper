@@ -65,7 +65,7 @@ my-scraper/
     └── icon-128.png
 ```
 
-🚀 Cara Instalasi
+## 🚀 Cara Instalasi
 Karena ekstensi ini bersifat custom (belum ada di Chrome Web Store), Anda perlu menginstalnya dalam mode pengembang:
  * Download/Clone repositori ini ke komputer Anda.
  * Buka Google Chrome dan ketik chrome://extensions di address bar.
