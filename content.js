@@ -1,4 +1,3 @@
-// content.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "scrape_visible") {
     if (!window.SCRAPER_CONFIG) {
@@ -19,42 +18,52 @@ function scrapeWithHeuristics() {
   cards.forEach((card) => {
     try {
       let itemData = {
-        name: "", price: "", rating: "", sold: "", shopLocation: "", imageUrl: "", productUrl: ""
+        name: "", price: "", rating: "", sold: "", shopLocation: "", 
+        imageUrl: "", productUrl: "", 
+        shopBadge: "Regular" // Default jika tidak ada badge
       };
 
-      // 1. AMBIL LINK (FOKUS UTAMA)
-      // Kita cari tag anchor <a> pertama di dalam kartu
+      // 1. AMBIL LINK
       const anchor = card.querySelector('a');
-      
-      // Validasi: Jika tidak ada anchor atau href kosong, skip item ini
       if (!anchor || !anchor.href) return;
-      
-      // Membersihkan URL (Opsional: menghapus query param kotor jika mau, tapi kita ambil mentah dulu)
       itemData.productUrl = anchor.href;
 
-      // 2. AMBIL GAMBAR
-      const img = card.querySelector('img');
-      itemData.imageUrl = img ? img.src : "";
+      // 2. AMBIL SEMUA GAMBAR (Produk & Badge)
+      const allImages = Array.from(card.querySelectorAll('img'));
+      
+      // Gambar produk biasanya adalah gambar pertama atau yang terbesar
+      // Kita asumsikan gambar pertama adalah gambar produk
+      if (allImages.length > 0) {
+        itemData.imageUrl = allImages[0].src;
+      }
 
-      // 3. HEURISTIC TEXT (Harga, Nama, dll)
+      // --- LOGIKA DETEKSI BADGE ---
+      // Loop semua gambar di card untuk mencari yang cocok dengan pola badge
+      for (const img of allImages) {
+        const src = img.src;
+        let foundBadge = false;
+
+        for (const badgePattern of CONFIG.badgePatterns) {
+          if (badgePattern.regex.test(src)) {
+            itemData.shopBadge = badgePattern.id;
+            foundBadge = true;
+            break; 
+          }
+        }
+        if (foundBadge) break; // Jika sudah ketemu, stop cari badge lain
+      }
+      // ----------------------------
+
+      // 3. HEURISTIC TEXT
       const rawText = card.innerText; 
       const textLines = rawText.split('\n').map(t => t.trim()).filter(t => t.length > 0);
       const potentialTitles = [];
       const potentialShops = [];
 
       textLines.forEach(text => {
-        if (CONFIG.patterns.price.test(text)) {
-          itemData.price = text;
-          return;
-        }
-        if (CONFIG.patterns.rating.test(text)) {
-          itemData.rating = text;
-          return;
-        }
-        if (CONFIG.patterns.sold.test(text)) {
-          itemData.sold = text;
-          return;
-        }
+        if (CONFIG.patterns.price.test(text)) { itemData.price = text; return; }
+        if (CONFIG.patterns.rating.test(text)) { itemData.rating = text; return; }
+        if (CONFIG.patterns.sold.test(text)) { itemData.sold = text; return; }
         if (CONFIG.patterns.discount.test(text)) return;
 
         if (text.length > 20) {

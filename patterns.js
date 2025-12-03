@@ -1,27 +1,35 @@
-// patterns.js
 if (typeof window.SCRAPER_CONFIG === 'undefined') {
   window.SCRAPER_CONFIG = {
-    // Container kartu masih butuh selector CSS agar kita bisa membedakan antar produk.
-    // Kita gunakan selector yang paling stabil (container grid item).
+    // Selector container utama
     cardContainer: '.css-5wh65g', 
 
-    // Disini kita definisikan POLA DATA (Regex)
+    // Pola Regex untuk deteksi teks (Harga, Rating, dll)
     patterns: {
-      // Pola Harga: Diawali "Rp", diikuti angka atau titik.
-      // Contoh: Rp10.000, Rp 5.000.000
       price: /^Rp\s?[\d\.]+/i,
-
-      // Pola Rating: Angka desimal 1.0 sampai 5.0
-      // Contoh: 4.9, 5.0
       rating: /^[1-5]\.\d$/,
-
-      // Pola Terjual: Angka diikuti kata "terjual" atau "sold"
-      // Contoh: 100+ terjual, 5rb+ terjual
       sold: /(\d+[rbjt\+]?)\s+(terjual|sold)/i,
-      
-      // Pola Diskon: Angka persen (opsional, untuk membedakan harga asli vs diskon)
       discount: /^\d{1,2}%$/
-    }
+    },
+
+    // --- LOGIKA BARU: DETEKSI BADGE ---
+    // Mencocokkan bagian dari URL gambar (src) dengan Nama Badge
+    badgePatterns: [
+      {
+        id: "Mall",
+        // Mencocokkan "badge_os.png" atau variannya
+        regex: /badge_os\.png/i 
+      },
+      {
+        id: "Power Shop",
+        // Mencocokkan "Power Merchant Pro" (URL encoded atau tidak)
+        regex: /Power%20Merchant%20Pro|Power_Merchant_Pro/i
+      },
+      {
+        id: "Power Merchant",
+        // Fallback untuk PM biasa (jika ada)
+        regex: /Power%20Merchant(?!%20Pro)|Power_Merchant(?!_Pro)/i
+      }
+    ]
   };
 }
 console.log("Pattern Config Loaded:", window.SCRAPER_CONFIG);

@@ -9,9 +9,7 @@ const statusMsg = document.getElementById('status-msg');
 const countLabel = document.getElementById('count');
 const resultsContainer = document.getElementById('results');
 
-// ==========================================
 // 1. HANDLER TOMBOL SCRAPE
-// ==========================================
 btnScrape.addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
@@ -47,19 +45,13 @@ btnScrape.addEventListener('click', async () => {
   });
 });
 
-// ==========================================
-// 2. LOGIKA UTAMA (Processing + Parsing)
-// ==========================================
+// 2. LOGIKA UTAMA
 function processNewData(items) {
   let newCount = 0;
 
   items.forEach(item => {
     if (item.productUrl && !uniqueUrls.has(item.productUrl)) {
-      
-      // 1. Ekstrak Username dari URL
       item.shopUsername = extractUsername(item.productUrl);
-
-      // 2. Parsing Nama Toko dan Lokasi (LOGIKA BARU)
       const parsedShop = parseShopData(item.shopLocation);
       item.cleanShopName = parsedShop.name;
       item.cleanLocation = parsedShop.location;
@@ -77,50 +69,44 @@ function processNewData(items) {
     updateStatus(`+${newCount} produk. Scroll lagi!`, "green");
     btnExport.disabled = false;
   } else {
-    updateStatus("Tidak ada produk baru. Scroll lagi.", "#666");
+    updateStatus("Tidak ada produk baru.", "#666");
   }
 }
 
-// --- Helper: Parsing String "Nama - Lokasi" ---
 function parseShopData(combinedString) {
   if (!combinedString) return { name: "-", location: "-" };
-
-  // Pecah berdasarkan separator yang kita buat di content.js
   const parts = combinedString.split(" - ");
-
-  // Jika cuma ada 1 bagian (misal data lokasi tidak terbaca)
-  if (parts.length === 1) {
-    return { name: parts[0], location: "-" };
-  }
-
-  // Logika: Elemen terakhir biasanya Lokasi (Kota/Kab), sisanya Nama Toko
-  const location = parts.pop(); // Ambil elemen terakhir
-  const name = parts.join(" - "); // Gabung sisanya (jika nama toko ada strip-nya)
-
+  if (parts.length === 1) return { name: parts[0], location: "-" };
+  const location = parts.pop(); 
+  const name = parts.join(" - "); 
   return { name, location };
 }
 
-// --- Helper: Ekstrak Username URL ---
 function extractUsername(urlString) {
   try {
     const url = new URL(urlString);
     const segments = url.pathname.split('/');
-    if (segments.length > 1 && segments[1]) {
-      return segments[1];
-    }
+    if (segments.length > 1 && segments[1]) return segments[1];
     return "-";
-  } catch (e) {
-    return "-";
-  }
+  } catch (e) { return "-"; }
 }
 
-// ==========================================
-// 3. RENDER UI
-// ==========================================
+// 3. RENDER UI (Dengan Badge)
 function renderItem(item) {
   const div = document.createElement('div');
   div.className = 'item-preview';
   
+  // Tentukan warna badge
+  let badgeColor = "#888"; // Abu-abu (Regular)
+  let badgeText = item.shopBadge;
+  
+  if (item.shopBadge === "Mall") {
+    badgeColor = "#D6001C"; // Merah
+  } else if (item.shopBadge === "Power Shop") {
+    badgeColor = "#00AA5B"; // Hijau
+    badgeText = "Power Pro"; // Singkat aja biar muat
+  }
+
   div.innerHTML = `
     <img src="${item.imageUrl}" alt="img" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #eee;">
     <div style="flex: 1; overflow: hidden; padding-left: 10px; display: flex; flex-direction: column; justify-content: center;">
@@ -133,30 +119,31 @@ function renderItem(item) {
         ${item.price}
       </div>
       
-      <div style="font-size: 10px; color: #555; margin-top: 2px;">
-        🛒 <b>${item.cleanShopName}</b> (${item.shopUsername})
+      <div style="font-size: 10px; color: #555; margin-top: 3px; display: flex; align-items: center; gap: 4px;">
+        <span style="background:${badgeColor}; color:white; padding: 1px 4px; border-radius:3px; font-weight:bold; font-size:9px;">
+          ${badgeText}
+        </span>
+        <span>${item.cleanShopName}</span>
       </div>
       
       <div style="font-size: 10px; color: #888; margin-top: 1px;">
-         📍 ${item.cleanLocation}
+         📍 ${item.cleanLocation} | ${item.shopUsername}
       </div>
-
     </div>
   `;
   
   resultsContainer.appendChild(div); 
 }
 
-// ==========================================
-// 4. EXPORT CSV (Updated Columns)
-// ==========================================
+// 4. EXPORT CSV (Updated)
 btnExport.addEventListener('click', () => {
   if (collectedData.length === 0) return;
   
   const headers = [
+    "Jenis Toko", // Kolom Baru: Mall / Power Shop / Regular
     "Username Toko", 
-    "Nama Toko",    // Kolom Baru
-    "Lokasi Toko",  // Kolom Baru
+    "Nama Toko",    
+    "Lokasi Toko",  
     "Nama Produk", 
     "Harga", 
     "Rating", 
@@ -167,9 +154,10 @@ btnExport.addEventListener('click', () => {
   
   const csvRows = collectedData.map(item => {
     return [
+      escapeCsv(item.shopBadge), // Data Badge
       escapeCsv(item.shopUsername),
-      escapeCsv(item.cleanShopName), // Data hasil parsing
-      escapeCsv(item.cleanLocation), // Data hasil parsing
+      escapeCsv(item.cleanShopName),
+      escapeCsv(item.cleanLocation),
       escapeCsv(item.name),
       escapeCsv(item.price),
       escapeCsv(item.rating),
@@ -184,11 +172,9 @@ btnExport.addEventListener('click', () => {
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   link.setAttribute("href", url);
   link.setAttribute("download", `tokopedia_scrape_${timestamp}.csv`);
-  
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
