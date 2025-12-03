@@ -75,22 +75,25 @@ Karena ekstensi ini bersifat custom (belum ada di Chrome Web Store), Anda perlu 
  * Selesai! Ikon TokoScraper akan muncul di toolbar Chrome.
 
 ### 📖 Cara Penggunaan
-Langkah 1: Scanning Awal
+#### Langkah 1: Scanning Awal
  * Buka situs Tokopedia dan lakukan pencarian produk (misal: "Mic Maono").
  * Klik ikon TokoScraper di toolbar untuk membuka Sidepanel.
  * Klik tombol "📷 Scan Halaman".
  * Lakukan scroll manual pada halaman Tokopedia untuk memuat lebih banyak produk, lalu klik "📷 Scan Halaman" lagi. Data baru akan ditambahkan tanpa duplikasi.
-Langkah 2: Kurasi Data (Cleaning)
+
+#### Langkah 2: Kurasi Data (Cleaning)
  * Gunakan kotak pencarian di Sidepanel untuk memfilter produk.
  * Gunakan tombol NOT untuk membuang produk yang tidak diinginkan.
  * Klik tombol 🗑️ All untuk menghapus massal produk sampah yang sedang tampil.
  * Gunakan dropdown Sort untuk mengurutkan berdasarkan Harga Termurah atau Rating Tertinggi.
-Langkah 3: Ambil Detail (Deep Scraping)
+
+#### Langkah 3: Ambil Detail (Deep Scraping)
  * Buka panel "🤖 Auto Detail Scraper".
  * Atur delay (misal Min: 3 detik, Max: 6 detik) untuk menghindari deteksi bot.
  * Klik "▶ Mulai Auto".
  * Ekstensi akan otomatis membuka tab produk satu per satu, mengambil data stok & deskripsi, lalu menutupnya.
-Langkah 4: Simpan Data
+
+#### Langkah 4: Simpan Data
  * Setelah puas dengan data yang terkumpul, klik tombol "💾 Export JSON".
  * File JSON akan terunduh dengan nama tokopedia_data_[timestamp].json.
 
