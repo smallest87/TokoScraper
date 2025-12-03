@@ -98,3 +98,31 @@ Proyek ini dibuat untuk tujuan edukasi dan produktivitas pribadi.
  * Gunakan dengan bijak dan delay yang wajar agar tidak membebani server Tokopedia.
  * Struktur HTML Tokopedia dapat berubah sewaktu-waktu yang mungkin menyebabkan alat ini perlu diperbarui (update patterns.js).
 Happy Scraping! 🕵
+
+## 👥 PARA SPONSOR
+Masih menunggu orang-orang baik
+
+## 💰 DONASI
+
+### LINK DONASI
+1. [SAWERIA](https://saweria.co/juliansukrisna) - QRIS, GoPay, OVO, Dana, LinkAja
+2. [Lynk.id](https://lynk.id/smallest87/gg8dgvjk0dpl/checkout) ShoopePay, OVO, QRIS, Dana, Virtual Account, Credt Card
+2. [SOCIABUZZ](https://sociabuzz.com/juliansukrisna/tribe) - eWallet, QRIS, Bank Transfer, Retail Outlet, Credit Card
+3. [TRAKTEER](https://teer.id/juliansukrisna)
+
+### 📢 STATUS DONASI:
+```
+OPERASIONAL BULANAN
+Biaya Hidup & Menghidupi (DES '25)
+█|░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░| IDR  6.000.000 |
+Terkumpul: IDR 0,00 (0%)
+
+Biaya Sewa/Beli Developer Tools (DES '25)
+█|░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░| IDR  2.000.000 |
+Terkumpul: IDR 0,00 (0%)
+====================================================
+Target Impian:
+14-inch MacBook Pro M4
+█|░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░| IDR 26.499.000 |
+Terkumpul: IDR 0,00 (0%)
+```
