@@ -1,27 +1,18 @@
-/* RESET & BASE */
+/* RESET */
 body { 
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-  padding: 12px; 
-  background: #f8f9fa; 
-  color: #333; 
-  margin: 0;
+  padding: 12px; background: #f8f9fa; color: #333; margin: 0;
 }
-
 .container { display: flex; flex-direction: column; gap: 10px; }
+h2 { margin: 0; color: #00AA5B; font-size: 16px; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px; }
 
-/* HEADER */
-h2 { 
-  margin: 0; color: #00AA5B; font-size: 16px; 
-  border-bottom: 2px solid #e0e0e0; padding-bottom: 8px; 
-}
-
-/* PAGE INDICATOR */
+/* INDICATOR */
 .page-info {
   padding: 8px; border-radius: 4px; font-size: 11px; font-weight: bold;
   border: 1px solid #ddd; text-align: center; background: #f5f5f5; color: #666;
 }
 
-/* CONTROLS (BUTTONS) */
+/* CONTROLS */
 .controls { display: flex; gap: 8px; }
 .btn { 
   flex: 1; padding: 10px; border: none; border-radius: 6px; cursor: pointer; 
@@ -34,33 +25,21 @@ h2 {
 .danger { background: #E02954; }
 
 /* AUTOMATION PANEL */
-.automation-panel {
-  padding: 10px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 6px;
-}
-.automation-panel h3 {
-  margin: 0 0 8px 0; font-size: 12px; color: #e65100;
-}
+.automation-panel { padding: 10px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 6px; }
+.automation-panel h3 { margin: 0 0 8px 0; font-size: 12px; color: #e65100; }
 .input-group { display: flex; gap: 8px; margin-bottom: 8px; }
 .input-wrapper { flex: 1; }
 .input-wrapper label { font-size: 9px; display: block; color: #666; margin-bottom: 2px; }
-.input-wrapper input { 
-  width: 100%; box-sizing: border-box; padding: 4px; 
-  border: 1px solid #ddd; border-radius: 4px; 
-}
-.auto-status-text {
-  font-size: 10px; color: #666; margin-top: 6px; 
-  font-style: italic; text-align: center;
-}
+.input-wrapper input { width: 100%; box-sizing: border-box; padding: 4px; border: 1px solid #ddd; border-radius: 4px; }
+.auto-status-text { font-size: 10px; color: #666; margin-top: 6px; font-style: italic; text-align: center; }
 
 /* SEARCH & FILTER */
 .search-wrapper { display: flex; gap: 5px; align-items: center; }
 .search-wrapper input {
-  flex: 1; padding: 7px; border: 1px solid #ddd; 
-  border-radius: 4px; font-size: 12px; outline: none;
+  flex: 1; padding: 7px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; outline: none;
 }
 .search-wrapper input:focus { border-color: #00AA5B; }
 
-/* Toggle NOT Button */
 .toggle-not-btn {
   position: relative; display: inline-flex; align-items: center; justify-content: center;
   width: 40px; height: 30px; background-color: #eee; border: 1px solid #ddd;
@@ -70,6 +49,15 @@ h2 {
 .toggle-not-btn .slider-label { font-size: 10px; font-weight: bold; color: #666; }
 .toggle-not-btn:has(input:checked) { background-color: #ffebee; border-color: #ef9a9a; }
 .toggle-not-btn:has(input:checked) .slider-label { color: #c62828; }
+
+/* BULK DELETE BUTTON */
+.btn-bulk-delete {
+  height: 30px; padding: 0 8px; border: 1px solid #ef9a9a; background: #ffebee; 
+  color: #c62828; border-radius: 4px; cursor: pointer; font-size: 10px; 
+  font-weight: bold; transition: background 0.2s; white-space: nowrap;
+}
+.btn-bulk-delete:hover { background: #ffcdd2; }
+.btn-bulk-delete:active { background: #e57373; color: white; }
 
 /* SORTING */
 .sort-wrapper { display: flex; gap: 5px; }
@@ -86,50 +74,29 @@ h2 {
 .stats p { margin: 2px 0; }
 #count { font-weight: bold; color: #333; }
 
-/* RESULT LIST (Updated Compact Style) */
+/* LIST & ITEMS */
 .results-area {
   height: 400px; overflow-y: auto; background: white; padding: 0;
   border-radius: 6px; border: 1px solid #eee;
 }
-
 .item-preview { 
-  padding: 8px 10px; 
-  border-bottom: 1px solid #f0f0f0; 
-  display: flex; 
-  gap: 10px; 
-  align-items: flex-start;
-  transition: background 0.2s;
+  padding: 8px 10px; border-bottom: 1px solid #f0f0f0; display: flex; gap: 10px; 
+  align-items: flex-start; transition: background 0.2s;
 }
 .item-preview:hover { background-color: #f9f9f9; }
 
-/* Thumbnail Kecil */
 .item-thumb {
-  width: 36px; height: 36px; object-fit: cover;
-  border-radius: 4px; border: 1px solid #e0e0e0; flex-shrink: 0; background-color: #f5f5f5;
+  width: 36px; height: 36px; object-fit: cover; border-radius: 4px; 
+  border: 1px solid #e0e0e0; flex-shrink: 0; background-color: #f5f5f5;
 }
-
-/* Info Text Wrapper */
-.item-info {
-  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;
-}
-
-.item-title {
-  font-weight: 600; font-size: 11px; color: #333; 
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
+.item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.item-title { font-weight: 600; font-size: 11px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-price { color: #00AA5B; font-weight: 700; font-size: 11px; }
-
 .item-meta { font-size: 9px; color: #fa591d; display: flex; align-items: center; gap: 4px; }
-
 .item-shop { font-size: 9px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Action Row & Buttons */
 .action-row { margin-top: 4px; display: flex; align-items: center; justify-content: space-between; }
-
-.shop-badge {
-  padding: 1px 3px; border-radius: 2px; font-weight: bold; font-size: 8px; color: white; margin-right: 4px;
-}
+.shop-badge { padding: 1px 3px; border-radius: 2px; font-weight: bold; font-size: 8px; color: white; margin-right: 4px; }
 
 .btn-mini {
   border: 1px solid #ddd; background: white; border-radius: 3px; cursor: pointer;
@@ -139,18 +106,12 @@ h2 {
 .btn-mini.delete { color: #c62828; border-color: #ffcdd2; background: #ffebee; }
 .btn-mini.open { color: #00AA5B; border-color: #00AA5B; }
 
-/* DETAIL BOX (Collapsible) */
+/* DETAIL BOX */
 .detail-box {
   background: #fbfbfb; border: 1px dashed #ddd; border-radius: 4px;
-  margin-top: 8px; padding: 8px; font-size: 10px; color: #333;
-  display: none;
+  margin-top: 8px; padding: 8px; font-size: 10px; color: #333; display: none;
 }
 .detail-box.visible { display: block; }
 .detail-images { display: flex; gap: 4px; overflow-x: auto; margin-bottom: 5px; }
-.detail-images img {
-  width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #ccc;
-}
-.val-desc {
-  display: block; white-space: pre-wrap; color: #666; margin-top: 2px;
-  max-height: 80px; overflow-y: auto;
-}
+.detail-images img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #ccc; }
+.val-desc { display: block; white-space: pre-wrap; color: #666; margin-top: 2px; max-height: 80px; overflow-y: auto; }
