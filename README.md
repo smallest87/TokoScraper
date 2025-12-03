@@ -92,7 +92,8 @@ Langkah 3: Ambil Detail (Deep Scraping)
 Langkah 4: Simpan Data
  * Setelah puas dengan data yang terkumpul, klik tombol "💾 Export JSON".
  * File JSON akan terunduh dengan nama tokopedia_data_[timestamp].json.
-⚠️ Disclaimer
+
+### ⚠️ Disclaimer
 Proyek ini dibuat untuk tujuan edukasi dan produktivitas pribadi.
  * Penulis tidak bertanggung jawab atas penyalahgunaan alat ini.
  * Gunakan dengan bijak dan delay yang wajar agar tidak membebani server Tokopedia.
