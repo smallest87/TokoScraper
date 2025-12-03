@@ -12,11 +12,12 @@ const countLabel = document.getElementById('count');
 const resultsContainer = document.getElementById('results');
 const pageTypeIndicator = document.getElementById('page-type-indicator');
 
+// Ubah teks tombol agar sesuai
+btnExport.innerText = "Export JSON";
+
 // ==========================================
 // 2. AUTO-DETECT LISTENERS
 // ==========================================
-
-// Init check
 (async function initPageCheck() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -24,7 +25,6 @@ const pageTypeIndicator = document.getElementById('page-type-indicator');
   } catch (e) { console.log(e); }
 })();
 
-// URL Change check
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' || changeInfo.url) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -33,14 +33,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Tab Switch check
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   const tab = await chrome.tabs.get(activeInfo.tabId);
   if (tab && tab.url) updatePageIndicator(tab.url);
 });
 
 // ==========================================
-// 3. LOGIKA DETEKSI HALAMAN (UPDATED)
+// 3. LOGIKA DETEKSI HALAMAN
 // ==========================================
 function updatePageIndicator(url) {
   if (!url.includes('tokopedia.com')) {
@@ -52,21 +51,13 @@ function updatePageIndicator(url) {
   btnScrape.disabled = false;
   const type = detectPageType(url);
   
-  // Set tampilan berdasarkan kode tipe halaman
   switch (type.code) {
-    case 'search':
-      setIndicator(type.label, "#fff3e0", "#e65100", "#ffe0b2"); // Oranye
-      break;
+    case 'search': setIndicator(type.label, "#fff3e0", "#e65100", "#ffe0b2"); break;
     case 'shop_home':
     case 'shop_list':
-    case 'shop_review':
-      setIndicator(type.label, "#e8f5e9", "#1b5e20", "#c8e6c9"); // Hijau
-      break;
-    case 'pdp':
-      setIndicator(type.label, "#e3f2fd", "#0d47a1", "#bbdefb"); // Biru
-      break;
-    default:
-      setIndicator(type.label, "#f5f5f5", "#616161", "#e0e0e0"); // Abu-abu
+    case 'shop_review': setIndicator(type.label, "#e8f5e9", "#1b5e20", "#c8e6c9"); break;
+    case 'pdp': setIndicator(type.label, "#e3f2fd", "#0d47a1", "#bbdefb"); break;
+    default: setIndicator(type.label, "#f5f5f5", "#616161", "#e0e0e0");
   }
 }
 
@@ -78,70 +69,37 @@ function setIndicator(text, bg, color, border) {
   pageTypeIndicator.style.borderColor = border;
 }
 
-// LOGIKA UTAMA: Parsing Struktur URL
 function detectPageType(urlString) {
   try {
     const url = new URL(urlString);
     const path = url.pathname;
-    
-    // Memecah path menjadi segmen dan membuang string kosong
-    // Contoh: "/ghmusic/product" -> ["ghmusic", "product"]
     const segments = path.split('/').filter(s => s.length > 0);
 
-    // 1. CEK HALAMAN SEARCH
-    if (path.startsWith('/search')) {
-      return { code: 'search', label: "🔍 Halaman Hasil Pencarian" };
-    }
+    if (path.startsWith('/search')) return { code: 'search', label: "🔍 Halaman Hasil Pencarian" };
 
-    // 2. CEK STRUKTUR TOKO & PRODUK
     if (segments.length >= 1) {
-      // Daftar kata kunci yang BUKAN nama toko (Reserved words)
       const reservedRoot = ['about', 'promo', 'help', 'cart', 'user', 'login', 'discovery', 'category'];
-      
-      // Jika segmen pertama adalah kata kunci sistem, anggap halaman umum
-      if (reservedRoot.includes(segments[0])) {
-        return { code: 'other', label: "📄 Halaman Tokopedia Umum" };
-      }
+      if (reservedRoot.includes(segments[0])) return { code: 'other', label: "📄 Halaman Tokopedia Umum" };
 
-      // --- LOGIKA SEGMENTASI ---
-      
-      // A. Halaman Beranda Toko: /{username} (Hanya 1 segmen)
-      if (segments.length === 1) {
-        return { code: 'shop_home', label: "🏠 Halaman Beranda Toko" };
-      }
+      if (segments.length === 1) return { code: 'shop_home', label: "🏠 Halaman Beranda Toko" };
 
-      // B. Cek Sub-halaman Toko (Segmen ke-2)
       if (segments.length >= 2) {
         const secondSegment = segments[1].toLowerCase();
-
-        // /{username}/review
-        if (secondSegment === 'review') {
-          return { code: 'shop_review', label: "⭐ Halaman Review Toko" };
-        }
-
-        // /{username}/product atau /{username}/etalase
-        if (secondSegment === 'product' || secondSegment === 'etalase') {
-          return { code: 'shop_list', label: "🏪 Halaman Produk Toko" };
-        }
-
-        // C. Halaman Detail Produk: /{username}/{produk-slug}
-        // Syarat: Segmen ke-2 BUKAN review, product, info, catatan, dll.
+        if (secondSegment === 'review') return { code: 'shop_review', label: "⭐ Halaman Review Toko" };
+        if (secondSegment === 'product' || secondSegment === 'etalase') return { code: 'shop_list', label: "🏪 Halaman Produk Toko" };
+        
         const reservedSecond = ['review', 'product', 'etalase', 'info', 'catatan', 'delivery'];
-        if (!reservedSecond.includes(secondSegment)) {
-          return { code: 'pdp', label: "📦 Halaman Detail Produk" };
-        }
+        if (!reservedSecond.includes(secondSegment)) return { code: 'pdp', label: "📦 Halaman Detail Produk" };
       }
     }
-    
     return { code: 'other', label: "📄 Halaman Tokopedia Umum" };
-
   } catch (e) {
     return { code: 'unknown', label: "❓ URL Tidak Valid" };
   }
 }
 
 // ==========================================
-// 4. HANDLER TOMBOL SCRAPE
+// 4. HANDLER SCRAPING
 // ==========================================
 btnScrape.addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -151,7 +109,7 @@ btnScrape.addEventListener('click', async () => {
     return;
   }
 
-  updatePageIndicator(tab.url); // Refresh indicator saat klik
+  updatePageIndicator(tab.url);
   updateStatus("Sedang memindai...", "orange");
 
   chrome.scripting.executeScript({
@@ -205,7 +163,6 @@ function processNewData(items) {
   }
 }
 
-// --- Helpers ---
 function parseShopData(combinedString) {
   if (!combinedString) return { name: "-", location: "-" };
   const parts = combinedString.split(" - ");
@@ -236,6 +193,10 @@ function renderItem(item) {
   const div = document.createElement('div');
   div.className = 'item-preview';
   
+  let badgeColor = "#999"; let badgeText = "Regular";
+  if (item.shopBadge === "Mall") { badgeColor = "#D6001C"; badgeText = "Mall"; }
+  else if (item.shopBadge === "Power Shop") { badgeColor = "#00AA5B"; badgeText = "Power Pro"; }
+
   div.innerHTML = `
     <img src="${item.imageUrl}" alt="img" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #eee;">
     <div style="flex: 1; overflow: hidden; padding-left: 10px; display: flex; flex-direction: column; justify-content: center;">
@@ -248,76 +209,96 @@ function renderItem(item) {
       <div style="font-size: 10px; color: #fa591d; margin-top: 2px;">
         ${item.rating ? `⭐ ${item.rating}` : ''} ${item.sold ? ` | ${item.sold}` : ''}
       </div>
-      <div class="action-row" style="margin-top: 4px; display: flex; align-items: center; justify-content: space-between;"></div>
+      <div class="action-row" style="margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display:flex; align-items:center;">
+           <span style="background:${badgeColor}; color:white; padding: 1px 4px; border-radius:3px; font-weight:bold; font-size:9px; margin-right:5px;">${badgeText}</span>
+           <span style="font-size: 10px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${item.cleanShopName}</span>
+        </div>
+      </div>
       <div style="font-size: 9px; color: #888; margin-top: 2px;">
-         📍 ${item.cleanLocation} (${item.shopUsername})
+         📍 ${item.cleanLocation}
       </div>
     </div>
   `;
 
+  // Append Link Button Logic
   const actionRow = div.querySelector('.action-row');
-
-  // Badge
-  let badgeColor = "#999"; let badgeText = "Regular";
-  if (item.shopBadge === "Mall") { badgeColor = "#D6001C"; badgeText = "Mall"; }
-  else if (item.shopBadge === "Power Shop") { badgeColor = "#00AA5B"; badgeText = "Power Pro"; }
-
-  const badgeSpan = document.createElement('span');
-  badgeSpan.style.cssText = `background:${badgeColor}; color:white; padding: 1px 4px; border-radius:3px; font-weight:bold; font-size:9px; margin-right:5px;`;
-  badgeSpan.innerText = badgeText;
-  
-  const shopNameSpan = document.createElement('span');
-  shopNameSpan.style.cssText = "font-size: 10px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;";
-  shopNameSpan.innerText = item.cleanShopName;
-
-  const leftSide = document.createElement('div');
-  leftSide.style.display = "flex";
-  leftSide.style.alignItems = "center";
-  leftSide.appendChild(badgeSpan);
-  leftSide.appendChild(shopNameSpan);
-  actionRow.appendChild(leftSide);
-
-  // Link Button
   const btnLink = document.createElement('button');
   btnLink.innerText = "🔗 Buka";
   btnLink.style.cssText = "border: 1px solid #ccc; background: #fff; border-radius: 3px; cursor: pointer; font-size: 9px; padding: 1px 5px; margin-left: 5px;";
-  
   if (typeof LinkHelper !== 'undefined') LinkHelper.attach(btnLink, item.productUrl);
   else btnLink.onclick = () => window.open(item.productUrl, '_blank');
-
   actionRow.appendChild(btnLink);
+
   resultsContainer.appendChild(div); 
 }
 
 // ==========================================
-// 7. EXPORT CSV
+// 7. EXPORT JSON (DENGAN FORMATTERS)
 // ==========================================
 btnExport.addEventListener('click', () => {
-  if (collectedData.length === 0) return;
-  const headers = ["Jenis Toko", "Username Toko", "Nama Toko", "Lokasi Toko", "Nama Produk", "Harga", "Rating", "Terjual", "Link Gambar", "Link Produk"];
-  const csvRows = collectedData.map(item => {
-    return [
-      escapeCsv(item.shopBadge), escapeCsv(item.shopUsername), escapeCsv(item.cleanShopName), escapeCsv(item.cleanLocation),
-      escapeCsv(item.name), escapeCsv(item.price), escapeCsv(item.rating), escapeCsv(item.sold),
-      escapeCsv(item.imageUrl), escapeCsv(item.productUrl)
-    ].join(",");
+  if (collectedData.length === 0) {
+    updateStatus("Belum ada data untuk diekspor!", "red");
+    return;
+  }
+  
+  // A. TRANSFORMA DATA
+  const shopsMap = new Map();
+
+  collectedData.forEach(item => {
+    const shopKey = item.shopUsername || "unknown_shop";
+
+    if (!shopsMap.has(shopKey)) {
+      shopsMap.set(shopKey, {
+        shopInfo: {
+          username: item.shopUsername,
+          name: item.cleanShopName,
+          location: item.cleanLocation,
+          badge: item.shopBadge,
+          rawLocationString: item.shopLocation 
+        },
+        products: [] 
+      });
+    }
+
+    // --- PENERAPAN FORMATTER DI SINI ---
+    // Kita bersihkan data mentah menjadi tipe data yang benar
+    shopsMap.get(shopKey).products.push({
+      name: item.name,
+      
+      // Price: String "Rp..." -> Integer
+      price: DataFormatter.price(item.price), 
+      
+      // Rating: String "4.9" -> Float 4.9
+      rating: DataFormatter.rating(item.rating), 
+      
+      // Sold: String "100+ terjual" -> Integer 101
+      sold: DataFormatter.sold(item.sold), 
+      
+      // Simpan juga string aslinya jika butuh referensi (opsional)
+      originalPrice: item.price, 
+      originalSold: item.sold,
+
+      imageUrl: item.imageUrl,
+      link: item.productUrl
+    });
+    // -----------------------------------
   });
-  const csvContent = [headers.join(","), ...csvRows].join("\n");
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+  const finalJsonData = Array.from(shopsMap.values());
+
+  // B. BUAT FILE DOWNLOAD
+  const jsonString = JSON.stringify(finalJsonData, null, 2); 
+  const blob = new Blob([jsonString], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
+  
   const link = document.createElement("a");
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   link.setAttribute("href", url);
-  link.setAttribute("download", `tokopedia_scrape_${timestamp}.csv`);
+  link.setAttribute("download", `tokopedia_data_${timestamp}.json`);
   link.style.visibility = 'hidden';
+  
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 });
-
-function escapeCsv(text) {
-  if (!text) return '""';
-  const str = String(text);
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) return `"${str.replace(/"/g, '""')}"`;
-  return `"${str}"`;
-}
