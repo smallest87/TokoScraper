@@ -1,10 +1,11 @@
 // ==========================================
 // 1. SETUP & STATE MANAGEMENT
 // ==========================================
-let collectedData = []; // Menyimpan state seluruh data
-let uniqueUrls = new Set(); // Mencegah duplikasi URL produk
+let collectedData = []; 
+let uniqueUrls = new Set(); 
+let isAutoRunning = false; // Flag untuk kontrol loop otomasi
 
-// Elemen DOM
+// Elemen DOM Dasar
 const btnScrape = document.getElementById('btnScrape');
 const btnExport = document.getElementById('btnExport');
 const statusMsg = document.getElementById('status-msg');
@@ -12,22 +13,28 @@ const countLabel = document.getElementById('count');
 const resultsContainer = document.getElementById('results');
 const pageTypeIndicator = document.getElementById('page-type-indicator');
 
-// Set text tombol export sesuai format baru
+// Elemen DOM Otomasi
+const btnAutoStart = document.getElementById('btnAutoStart');
+const btnAutoStop = document.getElementById('btnAutoStop');
+const inputDelayMin = document.getElementById('delayMin');
+const inputDelayMax = document.getElementById('delayMax');
+const autoStatusLabel = document.getElementById('auto-status');
+
 if(btnExport) btnExport.innerText = "Export JSON";
 
 // ==========================================
-// 2. GLOBAL LISTENERS (Message & Tabs)
+// 2. LISTENERS GLOBAL
 // ==========================================
 
-// Listener Pesan dari Content Scripts (PDP Scraper)
+// Listener Pesan (Data Detail Masuk)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Menangani data detail yang dikirim dari tab produk yang baru dibuka
   if (message.action === "pdp_scraped") {
-    handlePDPData(message.url, message.data);
+    // Kirim ID Tab pengirim agar bisa kita tutup
+    handlePDPData(message.url, message.data, sender.tab ? sender.tab.id : null);
   }
 });
 
-// Auto-Detect: Saat Sidepanel dibuka
+// Auto-Detect Page Logic
 (async function initPageCheck() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -35,7 +42,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } catch (e) { console.log(e); }
 })();
 
-// Auto-Detect: Saat URL berubah (Navigasi SPA)
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' || changeInfo.url) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -44,123 +50,130 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Auto-Detect: Saat ganti Tab Browser
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   const tab = await chrome.tabs.get(activeInfo.tabId);
   if (tab && tab.url) updatePageIndicator(tab.url);
 });
 
 // ==========================================
-// 3. LOGIKA DETEKSI HALAMAN
+// 3. LOGIKA OTOMASI (AUTO SCRAPER)
 // ==========================================
-function updatePageIndicator(url) {
-  if (!url.includes('tokopedia.com')) {
-    setIndicator("❌ Bukan Halaman Tokopedia", "#ffebee", "#c62828", "#ffcdd2");
-    if(btnScrape) btnScrape.disabled = true;
+
+btnAutoStart.addEventListener('click', async () => {
+  // 1. Kumpulkan semua tombol "Buka & Detail" yang belum selesai
+  // Kita cari tombol yang belum punya class 'processed'
+  const buttons = Array.from(document.querySelectorAll('.btn-open-scrape:not(.processed)'));
+
+  if (buttons.length === 0) {
+    autoStatusLabel.innerText = "Tidak ada item untuk diproses.";
     return;
   }
 
-  if(btnScrape) btnScrape.disabled = false;
-  const type = detectPageType(url);
+  // 2. Setup State
+  isAutoRunning = true;
+  updateAutoUI(true);
+  autoStatusLabel.innerText = `Menyiapkan ${buttons.length} item...`;
+
+  // 3. Acak Urutan (Shuffle)
+  const shuffledButtons = shuffleArray(buttons);
+
+  // 4. Eksekusi Loop
+  let processedCount = 0;
   
-  switch (type.code) {
-    case 'search': setIndicator(type.label, "#fff3e0", "#e65100", "#ffe0b2"); break;
-    case 'shop_home':
-    case 'shop_list':
-    case 'shop_review': setIndicator(type.label, "#e8f5e9", "#1b5e20", "#c8e6c9"); break;
-    case 'pdp': setIndicator(type.label, "#e3f2fd", "#0d47a1", "#bbdefb"); break;
-    default: setIndicator(type.label, "#f5f5f5", "#616161", "#e0e0e0");
+  for (const btn of shuffledButtons) {
+    if (!isAutoRunning) break; // Cek tombol stop
+
+    // Scroll ke elemen agar user tahu mana yang sedang dikerjakan
+    btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Klik tombolnya (ini akan memicu logika btnOpen.onclick di renderItem)
+    // Kita tambahkan flag 'auto-click' agar logic tahu ini otomatis
+    btn.click();
+    
+    processedCount++;
+    autoStatusLabel.innerText = `Memproses ${processedCount} dari ${buttons.length} (Acak)...`;
+
+    // 5. Hitung Delay Humanize
+    const min = parseFloat(inputDelayMin.value) * 1000;
+    const max = parseFloat(inputDelayMax.value) * 1000;
+    const randomDelay = Math.floor(Math.random() * (max - min + 1) + min);
+
+    // Tunggu sebelum lanjut ke item berikutnya
+    await sleep(randomDelay);
   }
+
+  isAutoRunning = false;
+  updateAutoUI(false);
+  autoStatusLabel.innerText = isAutoRunning ? "Berhenti." : "Selesai semua!";
+});
+
+btnAutoStop.addEventListener('click', () => {
+  isAutoRunning = false;
+  updateAutoUI(false);
+  autoStatusLabel.innerText = "Berhenti paksa...";
+});
+
+// --- Helper Automation ---
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function setIndicator(text, bg, color, border) {
-  if(!pageTypeIndicator) return;
-  pageTypeIndicator.innerText = text;
-  pageTypeIndicator.className = 'page-info';
-  pageTypeIndicator.style.backgroundColor = bg;
-  pageTypeIndicator.style.color = color;
-  pageTypeIndicator.style.borderColor = border;
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
 }
 
-function detectPageType(urlString) {
-  try {
-    const url = new URL(urlString);
-    const path = url.pathname;
-    const segments = path.split('/').filter(s => s.length > 0);
-
-    if (path.startsWith('/search')) return { code: 'search', label: "🔍 Halaman Hasil Pencarian" };
-
-    if (segments.length >= 1) {
-      const reservedRoot = ['about', 'promo', 'help', 'cart', 'user', 'login', 'discovery', 'category'];
-      if (reservedRoot.includes(segments[0])) return { code: 'other', label: "📄 Halaman Tokopedia Umum" };
-
-      if (segments.length === 1) return { code: 'shop_home', label: "🏠 Halaman Beranda Toko" };
-
-      if (segments.length >= 2) {
-        const secondSegment = segments[1].toLowerCase();
-        if (secondSegment === 'review') return { code: 'shop_review', label: "⭐ Halaman Review Toko" };
-        if (secondSegment === 'product' || secondSegment === 'etalase') return { code: 'shop_list', label: "🏪 Halaman Produk Toko" };
-        
-        const reservedSecond = ['review', 'product', 'etalase', 'info', 'catatan', 'delivery'];
-        if (!reservedSecond.includes(secondSegment)) return { code: 'pdp', label: "📦 Halaman Detail Produk" };
-      }
-    }
-    return { code: 'other', label: "📄 Halaman Tokopedia Umum" };
-  } catch (e) {
-    return { code: 'unknown', label: "❓ URL Tidak Valid" };
-  }
+function updateAutoUI(running) {
+  btnAutoStart.disabled = running;
+  btnAutoStop.disabled = !running;
+  btnScrape.disabled = running;
+  btnExport.disabled = running;
 }
 
 // ==========================================
-// 4. HANDLER TOMBOL SCRAPE (MAIN)
+// 4. HANDLER SCRAPING (LISTING)
 // ==========================================
 btnScrape.addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
   if (!tab.url.includes('tokopedia.com')) {
-    updateStatus("Error: Buka halaman Tokopedia dulu!", "red");
+    updateStatus("Error: Bukan Tokopedia", "red");
     return;
   }
 
   updatePageIndicator(tab.url);
   updateStatus("Sedang memindai halaman...", "orange");
 
-  // Injeksi file berurutan: Patterns -> Content Script
   chrome.scripting.executeScript({
     target: { tabId: tab.id },
     files: ['patterns.js', 'content.js'] 
   }, () => {
-    
     if (chrome.runtime.lastError) {
-      updateStatus("Gagal inject script. Refresh halaman.", "red");
+      updateStatus("Gagal inject. Refresh.", "red");
       return;
     }
-
     chrome.tabs.sendMessage(tab.id, { action: "scrape_visible" }, (response) => {
-      if (chrome.runtime.lastError) {
-        updateStatus("Koneksi terputus. Refresh halaman.", "red");
-        return;
-      }
-
+      if (chrome.runtime.lastError) return updateStatus("Koneksi putus.", "red");
+      
       if (response && response.status === "success") {
         processNewData(response.data);
       } else {
-        updateStatus("Gagal membaca data.", "red");
+        updateStatus("Gagal baca data.", "red");
       }
     });
   });
 });
 
 // ==========================================
-// 5. PROCESSING & PARSING DATA
+// 5. PROCESSING DATA
 // ==========================================
 function processNewData(items) {
   let newCount = 0;
-
   items.forEach(item => {
     if (item.productUrl && !uniqueUrls.has(item.productUrl)) {
-      
-      // Parse Data Tambahan
       item.shopUsername = extractUsername(item.productUrl);
       const parsedShop = parseShopData(item.shopLocation);
       item.cleanShopName = parsedShop.name;
@@ -168,22 +181,18 @@ function processNewData(items) {
 
       uniqueUrls.add(item.productUrl);
       collectedData.push(item);
-      renderItem(item); // Render ke UI
+      renderItem(item);
       newCount++;
     }
   });
-
   countLabel.innerText = collectedData.length;
-  
   if (newCount > 0) {
-    updateStatus(`+${newCount} produk baru. Scroll lagi!`, "green");
+    updateStatus(`+${newCount} produk.`, "green");
     btnExport.disabled = false;
-  } else {
-    updateStatus("Tidak ada produk baru di layar.", "#666");
   }
 }
 
-// --- Helper Functions ---
+// --- Basic Helpers ---
 function parseShopData(combinedString) {
   if (!combinedString) return { name: "-", location: "-" };
   const parts = combinedString.split(" - ");
@@ -202,23 +211,41 @@ function extractUsername(urlString) {
   } catch (e) { return "-"; }
 }
 
+function detectPageType(urlString) {
+  try {
+    const url = new URL(urlString);
+    const path = url.pathname;
+    if (path.startsWith('/search')) return { code: 'search', label: "🔍 Pencarian" };
+    if (/\/[\w\-\.]+\/(product|etalase)/i.test(path)) return { code: 'shop_list', label: "🏪 Toko" };
+    return { code: 'other', label: "📄 Tokopedia" };
+  } catch (e) { return { code: 'unknown', label: "?" }; }
+}
+
+function updatePageIndicator(url) {
+  if(!pageTypeIndicator) return;
+  const type = detectPageType(url);
+  pageTypeIndicator.innerText = type.label;
+  
+  if(type.code === 'search') pageTypeIndicator.style.backgroundColor = "#fff3e0";
+  else if(type.code === 'shop_list') pageTypeIndicator.style.backgroundColor = "#e8f5e9";
+  else pageTypeIndicator.style.backgroundColor = "#f5f5f5";
+}
+
 function updateStatus(text, color) {
   statusMsg.innerText = text;
   statusMsg.style.color = color;
 }
 
 // ==========================================
-// 6. RENDER UI (ITEM + DETAIL LOGIC)
+// 6. RENDER UI & DETAIL LOGIC (UPDATED)
 // ==========================================
 function renderItem(item) {
   const div = document.createElement('div');
   div.className = 'item-preview';
   
-  // ID Unik untuk Container Detail (menggunakan Base64 dari URL agar safe)
   const uniqueId = btoa(item.productUrl).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-  div.setAttribute('data-url', item.productUrl); // Penanda untuk pencarian balik
+  div.setAttribute('data-url', item.productUrl); 
 
-  // Logika Warna Badge
   let badgeColor = "#999"; let badgeText = "Regular";
   if (item.shopBadge === "Mall") { badgeColor = "#D6001C"; badgeText = "Mall"; }
   else if (item.shopBadge === "Power Shop") { badgeColor = "#00AA5B"; badgeText = "Power Pro"; }
@@ -226,14 +253,10 @@ function renderItem(item) {
   div.innerHTML = `
     <img src="${item.imageUrl}" alt="img" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #eee;">
     <div style="flex: 1; overflow: hidden; padding-left: 10px; display: flex; flex-direction: column; justify-content: center;">
-      
       <div style="font-weight:600; font-size: 11px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.name}">${item.name}</div>
       <div style="color: #00AA5B; font-weight: bold; font-size: 12px; margin-top: 2px;">${item.price}</div>
+      <div style="font-size: 10px; color: #fa591d; margin-top: 2px;">${item.rating} ⭐ | ${item.sold}</div>
       
-      <div style="font-size: 10px; color: #fa591d; margin-top: 2px;">
-        ${item.rating ? `⭐ ${item.rating}` : ''} ${item.sold ? ` | ${item.sold}` : ''}
-      </div>
-
       <div class="action-row" style="margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
         <div style="display:flex; align-items:center;">
            <span style="background:${badgeColor}; color:white; padding: 1px 4px; border-radius:3px; font-weight:bold; font-size:9px; margin-right:5px;">${badgeText}</span>
@@ -244,14 +267,10 @@ function renderItem(item) {
            🔗 Buka & Detail
         </button>
       </div>
-      
-      <div style="font-size: 9px; color: #888; margin-top: 2px;">
-         📍 ${item.cleanLocation} (${item.shopUsername})
-      </div>
     </div>
 
     <div id="detail-${uniqueId}" class="detail-box">
-      <div class="status-loading">⏳ Membuka tab & mengambil detail...</div>
+      <div class="status-loading">⏳ Memuat...</div>
       <div class="content-detail" style="display:none;">
          <div class="detail-images"></div>
          <p style="margin:2px 0;"><b>Stok:</b> <span class="val-stock">-</span></p>
@@ -260,23 +279,27 @@ function renderItem(item) {
     </div>
   `;
 
-  // --- Attach Event Listener ke Tombol Buka ---
   const btnOpen = div.querySelector('.btn-open-scrape');
   const detailBox = div.querySelector(`#detail-${uniqueId}`);
 
   btnOpen.onclick = () => {
-    detailBox.classList.add('visible'); // Tampilkan box detail
+    // Tandai tombol sebagai 'processed' agar tidak diklik ulang oleh bot
+    btnOpen.classList.add('processed');
+    btnOpen.innerText = "⏳ Loading...";
+    btnOpen.disabled = true;
+
+    detailBox.classList.add('visible');
     
-    // Buka Tab Baru
-    chrome.tabs.create({ url: item.productUrl, active: true }, (newTab) => {
+    // Buka Tab (Active: false agar tidak mengganggu user jika auto, tapi true jika manual klik)
+    // Kita gunakan active: false agar automation tidak 'jumping' focus terus menerus
+    const isActive = !isAutoRunning; 
+
+    chrome.tabs.create({ url: item.productUrl, active: isActive }, (newTab) => {
       
-      // Listener: Tunggu tab selesai loading (status: complete)
       const listener = (tabId, changeInfo, tab) => {
         if (tabId === newTab.id && changeInfo.status === 'complete') {
+          chrome.tabs.onUpdated.removeListener(listener);
           
-          chrome.tabs.onUpdated.removeListener(listener); // Hapus listener agar hemat memori
-          
-          // Inject PDP Patterns & PDP Scraper
           chrome.scripting.executeScript({
             target: { tabId: tabId },
             files: ['pdp_patterns.js', 'pdp_scraper.js']
@@ -290,26 +313,31 @@ function renderItem(item) {
   resultsContainer.appendChild(div); 
 }
 
-// --- Handler Data Detail yang Diterima ---
-function handlePDPData(url, data) {
-  // Normalisasi URL untuk pencarian (remove query params)
+// --- Handler Data Detail + AUTO CLOSE ---
+function handlePDPData(url, data, senderTabId) {
   const cleanUrl = url.split('?')[0];
-  
-  // Cari elemen di sidepanel yang cocok dengan URL ini
-  // Menggunakan selector contains attribute (^=)
   const itemDiv = document.querySelector(`div[data-url^="${cleanUrl}"]`);
   
-  if (!itemDiv) {
-    console.warn("Item tidak ditemukan untuk detail:", url);
-    return;
+  // Jika tab pengirim ada, TUTUP TAB-nya (Fitur Auto-Close)
+  if (senderTabId) {
+    chrome.tabs.remove(senderTabId);
   }
 
-  // Generate ulang ID unik
+  if (!itemDiv) return;
+
   const uniqueId = btoa(itemDiv.getAttribute('data-url')).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
   const detailBox = document.getElementById(`detail-${uniqueId}`);
+  const btnOpen = itemDiv.querySelector('.btn-open-scrape');
+
+  // Update Tombol jadi 'Done'
+  if (btnOpen) {
+    btnOpen.innerText = "✔ Selesai";
+    btnOpen.style.borderColor = "#ccc";
+    btnOpen.style.color = "#ccc";
+  }
+
   if (!detailBox) return;
 
-  // Update UI Detail
   const loading = detailBox.querySelector('.status-loading');
   const content = detailBox.querySelector('.content-detail');
   const imgContainer = detailBox.querySelector('.detail-images');
@@ -320,7 +348,6 @@ function handlePDPData(url, data) {
   detailBox.querySelector('.val-desc').innerText = data.description || "-";
   detailBox.querySelector('.val-stock').innerText = data.stock || "-";
 
-  // Render Gambar Thumbnail
   imgContainer.innerHTML = '';
   if (data.images && data.images.length > 0) {
     data.images.slice(0, 5).forEach(src => {
@@ -330,7 +357,6 @@ function handlePDPData(url, data) {
     });
   }
 
-  // Tampilkan Lokasi Pengiriman jika ada (data dari detail lebih akurat)
   if (data.shopLocation) {
     const locInfo = document.createElement('div');
     locInfo.style.cssText = "font-size: 9px; color: #555; margin-top: 5px; border-top: 1px dashed #ccc; padding-top: 4px;";
@@ -338,7 +364,6 @@ function handlePDPData(url, data) {
     content.appendChild(locInfo);
   }
 
-  // MERGE DATA KE MEMORI (Untuk Export JSON)
   const dataIndex = collectedData.findIndex(d => d.productUrl === itemDiv.getAttribute('data-url'));
   if (dataIndex !== -1) {
     collectedData[dataIndex].details = data;
@@ -349,12 +374,8 @@ function handlePDPData(url, data) {
 // 7. EXPORT NESTED JSON
 // ==========================================
 btnExport.addEventListener('click', () => {
-  if (collectedData.length === 0) {
-    updateStatus("Belum ada data untuk diekspor!", "red");
-    return;
-  }
+  if (collectedData.length === 0) return updateStatus("Kosong", "red");
   
-  // Transformasi Data ke Struktur Toko > Produk
   const shopsMap = new Map();
 
   collectedData.forEach(item => {
@@ -373,20 +394,13 @@ btnExport.addEventListener('click', () => {
       });
     }
 
-    // Gunakan DataFormatter untuk membersihkan tipe data
     const productEntry = {
       name: item.name,
       price: typeof DataFormatter !== 'undefined' ? DataFormatter.price(item.price) : item.price,
       rating: typeof DataFormatter !== 'undefined' ? DataFormatter.rating(item.rating) : item.rating,
       sold: typeof DataFormatter !== 'undefined' ? DataFormatter.sold(item.sold) : item.sold,
-      
-      originalPrice: item.price, // Simpan raw string
-      originalSold: item.sold,   // Simpan raw string
-      
       imageUrl: item.imageUrl,
       link: item.productUrl,
-      
-      // Data Detail (Jika sudah discrape)
       detail: null
     };
 
@@ -394,7 +408,7 @@ btnExport.addEventListener('click', () => {
       productEntry.detail = {
         fullName: item.details.fullName,
         description: item.details.description,
-        stock: item.details.stock, // Angka/String stok
+        stock: item.details.stock,
         images: item.details.images,
         shopLocationFromDetail: item.details.shopLocation
       };
@@ -404,8 +418,6 @@ btnExport.addEventListener('click', () => {
   });
 
   const finalJsonData = Array.from(shopsMap.values());
-
-  // Download File JSON
   const jsonString = JSON.stringify(finalJsonData, null, 2); 
   const blob = new Blob([jsonString], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -414,8 +426,6 @@ btnExport.addEventListener('click', () => {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   link.setAttribute("href", url);
   link.setAttribute("download", `tokopedia_data_${timestamp}.json`);
-  link.style.visibility = 'hidden';
-  
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
