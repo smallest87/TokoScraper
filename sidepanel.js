@@ -5,7 +5,7 @@ let collectedData = [];
 let uniqueUrls = new Set(); 
 let isAutoRunning = false;
 
-// Elemen DOM
+// Referensi Elemen DOM Utama
 const btnScrape = document.getElementById('btnScrape');
 const btnExport = document.getElementById('btnExport');
 const statusMsg = document.getElementById('status-msg');
@@ -13,24 +13,34 @@ const countLabel = document.getElementById('count');
 const resultsContainer = document.getElementById('results');
 const pageTypeIndicator = document.getElementById('page-type-indicator');
 
-// Elemen DOM Otomasi
+// Referensi Elemen Search & Filter
+const searchInput = document.getElementById('searchInput');
+const toggleNot = document.getElementById('toggleNot');
+const filteredCountLabel = document.getElementById('filtered-count');
+
+// Referensi Elemen Otomasi
 const btnAutoStart = document.getElementById('btnAutoStart');
 const btnAutoStop = document.getElementById('btnAutoStop');
 const inputDelayMin = document.getElementById('delayMin');
 const inputDelayMax = document.getElementById('delayMax');
 const autoStatusLabel = document.getElementById('auto-status');
 
+// Inisialisasi Teks Tombol Export
 if(btnExport) btnExport.innerText = "Export JSON";
 
 // ==========================================
-// 2. LISTENERS GLOBAL
+// 2. GLOBAL LISTENERS (Tabs & Messages)
 // ==========================================
+
+// Listener pesan dari Content Scripts (PDP Scraper & Highlight response)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "pdp_scraped") {
+    // Handle data detail dan tutup tab pengirim (Auto-Close)
     handlePDPData(message.url, message.data, sender.tab ? sender.tab.id : null);
   }
 });
 
+// Auto-Detect Halaman saat panel dibuka/refresh/ganti tab
 (async function initPageCheck() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -52,34 +62,85 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 });
 
 // ==========================================
-// 3. LOGIKA OTOMASI
+// 3. FITUR SEARCH & FILTER REALTIME
+// ==========================================
+searchInput.addEventListener('input', runFilter);
+toggleNot.addEventListener('change', runFilter);
+
+function runFilter() {
+  const query = searchInput.value.toLowerCase().trim();
+  const isNotMode = toggleNot.checked;
+  
+  const itemElements = document.querySelectorAll('.item-preview');
+  let visibleCount = 0;
+
+  itemElements.forEach(el => {
+    // Cari teks di dalam elemen item
+    const textContent = el.innerText.toLowerCase();
+    const isMatch = textContent.includes(query);
+    
+    let shouldShow = true;
+    if (query === "") {
+      shouldShow = true;
+    } else {
+      shouldShow = isNotMode ? !isMatch : isMatch;
+    }
+
+    el.style.display = shouldShow ? 'flex' : 'none';
+    if (shouldShow) visibleCount++;
+  });
+
+  // Update UI Counter Filter
+  if (filteredCountLabel) {
+    if (query !== "") {
+      filteredCountLabel.style.display = 'inline';
+      filteredCountLabel.innerText = `(Filtered: ${visibleCount})`;
+    } else {
+      filteredCountLabel.style.display = 'none';
+    }
+  }
+}
+
+// ==========================================
+// 4. FITUR OTOMASI (AUTO CLICKER)
 // ==========================================
 btnAutoStart.addEventListener('click', async () => {
-  // Hanya ambil tombol yang ada di DOM (artinya item yang belum dihapus user)
-  const buttons = Array.from(document.querySelectorAll('.btn-open-scrape:not(.processed)'));
+  // Hanya ambil tombol yang visible (lolos filter) dan belum diproses
+  // Kita cari container item dulu untuk cek visibility
+  const allItems = Array.from(document.querySelectorAll('.item-preview'));
+  
+  const buttonsToClick = [];
+  
+  allItems.forEach(item => {
+    if (item.style.display !== 'none') { // Hanya yang terlihat
+      const btn = item.querySelector('.btn-open-scrape:not(.processed)');
+      if (btn) buttonsToClick.push(btn);
+    }
+  });
 
-  if (buttons.length === 0) {
-    autoStatusLabel.innerText = "Tidak ada item (atau semua sudah selesai).";
+  if (buttonsToClick.length === 0) {
+    autoStatusLabel.innerText = "Tidak ada item untuk diproses.";
     return;
   }
 
   isAutoRunning = true;
   updateAutoUI(true);
-  autoStatusLabel.innerText = `Menyiapkan ${buttons.length} item...`;
+  autoStatusLabel.innerText = `Menyiapkan ${buttonsToClick.length} item...`;
 
-  const shuffledButtons = shuffleArray(buttons);
+  // Shuffle urutan agar lebih humanis
+  const shuffledButtons = shuffleArray(buttonsToClick);
   let processedCount = 0;
   
   for (const btn of shuffledButtons) {
     if (!isAutoRunning) break; 
 
-    // Cek apakah item masih ada di DOM (jaga-jaga jika user menghapus saat bot jalan)
+    // Cek keberadaan elemen di DOM (jaga-jaga dihapus user saat proses)
     if (document.body.contains(btn)) {
       btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
       btn.click();
       
       processedCount++;
-      autoStatusLabel.innerText = `Memproses ${processedCount} dari ${buttons.length}...`;
+      autoStatusLabel.innerText = `Memproses ${processedCount} dari ${buttonsToClick.length}...`;
 
       const min = parseFloat(inputDelayMin.value) * 1000;
       const max = parseFloat(inputDelayMax.value) * 1000;
@@ -100,23 +161,8 @@ btnAutoStop.addEventListener('click', () => {
   autoStatusLabel.innerText = "Berhenti paksa...";
 });
 
-function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
-function shuffleArray(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-  return array;
-}
-function updateAutoUI(running) {
-  btnAutoStart.disabled = running;
-  btnAutoStop.disabled = !running;
-  btnScrape.disabled = running;
-  btnExport.disabled = running;
-}
-
 // ==========================================
-// 4. HANDLER SCRAPING (LISTING)
+// 5. HANDLER SCRAPING UTAMA (LISTING)
 // ==========================================
 btnScrape.addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -147,12 +193,13 @@ btnScrape.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 5. PROCESSING DATA
+// 6. PROCESSING DATA
 // ==========================================
 function processNewData(items) {
   let newCount = 0;
   items.forEach(item => {
     if (item.productUrl && !uniqueUrls.has(item.productUrl)) {
+      // Data enrichment
       item.shopUsername = extractUsername(item.productUrl);
       const parsedShop = parseShopData(item.shopLocation);
       item.cleanShopName = parsedShop.name;
@@ -164,62 +211,30 @@ function processNewData(items) {
       newCount++;
     }
   });
+  
   countLabel.innerText = collectedData.length;
   if (newCount > 0) {
     updateStatus(`+${newCount} produk.`, "green");
     btnExport.disabled = false;
+    
+    // Jalankan filter jika sedang ada query pencarian aktif
+    if (searchInput.value.trim() !== "") runFilter();
   }
 }
 
-// Helpers
-function parseShopData(combinedString) {
-  if (!combinedString) return { name: "-", location: "-" };
-  const parts = combinedString.split(" - ");
-  if (parts.length === 1) return { name: parts[0], location: "-" };
-  const location = parts.pop(); 
-  const name = parts.join(" - "); 
-  return { name, location };
-}
-function extractUsername(urlString) {
-  try {
-    const url = new URL(urlString);
-    const segments = url.pathname.split('/');
-    if (segments.length > 1 && segments[1]) return segments[1];
-    return "-";
-  } catch (e) { return "-"; }
-}
-function detectPageType(urlString) {
-  try {
-    const url = new URL(urlString);
-    const path = url.pathname;
-    if (path.startsWith('/search')) return { code: 'search', label: "🔍 Pencarian" };
-    if (/\/[\w\-\.]+\/(product|etalase)/i.test(path)) return { code: 'shop_list', label: "🏪 Toko" };
-    return { code: 'other', label: "📄 Tokopedia" };
-  } catch (e) { return { code: 'unknown', label: "?" }; }
-}
-function updatePageIndicator(url) {
-  if(!pageTypeIndicator) return;
-  const type = detectPageType(url);
-  pageTypeIndicator.innerText = type.label;
-  if(type.code === 'search') pageTypeIndicator.style.backgroundColor = "#fff3e0";
-  else if(type.code === 'shop_list') pageTypeIndicator.style.backgroundColor = "#e8f5e9";
-  else pageTypeIndicator.style.backgroundColor = "#f5f5f5";
-}
-function updateStatus(text, color) {
-  statusMsg.innerText = text;
-  statusMsg.style.color = color;
-}
-
 // ==========================================
-// 6. RENDER UI & DELETE LOGIC (UPDATED)
+// 7. RENDER ITEM (UI, LOGIC, HIGHLIGHT)
 // ==========================================
 function renderItem(item) {
   const div = document.createElement('div');
   div.className = 'item-preview';
+  div.style.cursor = 'pointer'; // Indikator bisa diklik
   
+  // ID Unik untuk Container Detail
   const uniqueId = btoa(item.productUrl).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
   div.setAttribute('data-url', item.productUrl); 
 
+  // Badge Logic
   let badgeColor = "#999"; let badgeText = "Regular";
   if (item.shopBadge === "Mall") { badgeColor = "#D6001C"; badgeText = "Mall"; }
   else if (item.shopBadge === "Power Shop") { badgeColor = "#00AA5B"; badgeText = "Power Pro"; }
@@ -238,13 +253,8 @@ function renderItem(item) {
         </div>
         
         <div style="display:flex; gap:3px;">
-          <button class="btn-delete" title="Hapus Item" style="border:1px solid #ffcdd2; background:#ffebee; color:#c62828; border-radius:3px; cursor:pointer; font-size:9px; padding:2px 5px;">
-            🗑️
-          </button>
-          
-          <button class="btn-open-scrape" style="border:1px solid #00AA5B; background:white; color:#00AA5B; border-radius:3px; cursor:pointer; font-size:9px; padding:2px 6px;">
-             🔗 Buka
-          </button>
+          <button class="btn-delete" title="Hapus Item" style="border:1px solid #ffcdd2; background:#ffebee; color:#c62828; border-radius:3px; cursor:pointer; font-size:9px; padding:2px 5px;">🗑️</button>
+          <button class="btn-open-scrape" style="border:1px solid #00AA5B; background:white; color:#00AA5B; border-radius:3px; cursor:pointer; font-size:9px; padding:2px 6px;">🔗 Buka</button>
         </div>
       </div>
       
@@ -263,33 +273,47 @@ function renderItem(item) {
     </div>
   `;
 
-  // --- LOGIKA TOMBOL HAPUS ---
+  // --- A. LOGIKA HIGHLIGHT (CLICK LISTENER) ---
+  div.addEventListener('click', async (e) => {
+    // Cegah highlight jika yang diklik adalah tombol atau area detail
+    if (e.target.closest('button') || e.target.closest('.detail-box')) {
+      return; 
+    }
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab && tab.id) {
+      chrome.tabs.sendMessage(tab.id, { 
+        action: "highlight_item", 
+        url: item.productUrl 
+      }).catch(err => console.log("Gagal highlight:", err));
+    }
+  });
+
+  // --- B. LOGIKA HAPUS ---
   const btnDelete = div.querySelector('.btn-delete');
-  btnDelete.onclick = () => {
-    // 1. Hapus dari DOM (Tampilan)
+  btnDelete.onclick = (e) => {
+    e.stopPropagation(); // Stop event agar tidak trigger highlight
     div.remove();
-
-    // 2. Hapus dari Memory (Data Array)
     collectedData = collectedData.filter(d => d.productUrl !== item.productUrl);
-
-    // 3. Hapus dari Unique Set (Agar bisa discrape ulang jika mau)
     uniqueUrls.delete(item.productUrl);
-
-    // 4. Update Counter UI
     countLabel.innerText = collectedData.length;
     
-    // 5. Update status
+    // Update counter filter jika sedang aktif
+    if (searchInput.value.trim() !== "") runFilter();
+
     if (collectedData.length === 0) {
       btnExport.disabled = true;
       updateStatus("List kosong.", "#666");
     }
   };
 
-  // --- LOGIKA TOMBOL BUKA & SCRAPE (Sama) ---
+  // --- C. LOGIKA BUKA & SCRAPE ---
   const btnOpen = div.querySelector('.btn-open-scrape');
   const detailBox = div.querySelector(`#detail-${uniqueId}`);
 
-  btnOpen.onclick = () => {
+  btnOpen.onclick = (e) => {
+    e.stopPropagation(); // Stop event highlight
+    
     btnOpen.classList.add('processed');
     btnOpen.innerText = "⏳...";
     btnOpen.disabled = true;
@@ -311,19 +335,18 @@ function renderItem(item) {
     });
   };
 
+  // APPEND CHILD (Urutan sesuai halaman)
   resultsContainer.appendChild(div); 
 }
 
 // --- Handler Data Detail + AUTO CLOSE ---
 function handlePDPData(url, data, senderTabId) {
   const cleanUrl = url.split('?')[0];
-  // Gunakan pencarian DOM yang aman
-  // Karena user mungkin sudah menghapus item saat tab loading
   const itemDiv = document.querySelector(`div[data-url^="${cleanUrl}"]`);
   
-  if (senderTabId) chrome.tabs.remove(senderTabId);
+  if (senderTabId) chrome.tabs.remove(senderTabId); // Close Tab
 
-  if (!itemDiv) return; // Jika item sudah dihapus user, abaikan data yang masuk
+  if (!itemDiv) return;
 
   const uniqueId = btoa(itemDiv.getAttribute('data-url')).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
   const detailBox = document.getElementById(`detail-${uniqueId}`);
@@ -363,6 +386,7 @@ function handlePDPData(url, data, senderTabId) {
     content.appendChild(locInfo);
   }
 
+  // Update Data Memory
   const dataIndex = collectedData.findIndex(d => d.productUrl === itemDiv.getAttribute('data-url'));
   if (dataIndex !== -1) {
     collectedData[dataIndex].details = data;
@@ -370,7 +394,7 @@ function handlePDPData(url, data, senderTabId) {
 }
 
 // ==========================================
-// 7. EXPORT NESTED JSON
+// 8. EXPORT NESTED JSON
 // ==========================================
 btnExport.addEventListener('click', () => {
   if (collectedData.length === 0) return updateStatus("Kosong", "red");
@@ -430,71 +454,78 @@ btnExport.addEventListener('click', () => {
   document.body.removeChild(link);
 });
 
-// ==========================================
-// 8. REALTIME SEARCH & FILTER
-// ==========================================
-const searchInput = document.getElementById('searchInput');
-const toggleNot = document.getElementById('toggleNot');
-const filteredCountLabel = document.getElementById('filtered-count');
-
-// Event Listener untuk Input Ketik & Toggle Klik
-searchInput.addEventListener('input', runFilter);
-toggleNot.addEventListener('change', runFilter);
-
-function runFilter() {
-  const query = searchInput.value.toLowerCase().trim();
-  const isNotMode = toggleNot.checked;
-  
-  // Ambil semua elemen item di DOM saat ini
-  const itemElements = document.querySelectorAll('.item-preview');
-  let visibleCount = 0;
-
-  itemElements.forEach(el => {
-    // Kita cari teks di dalam elemen tersebut (Nama, Toko, Harga, dll)
-    const textContent = el.innerText.toLowerCase();
-    
-    // Logika Pencarian
-    const isMatch = textContent.includes(query);
-    
-    let shouldShow = true;
-
-    if (query === "") {
-      shouldShow = true; // Jika kosong, tampilkan semua
-    } else {
-      if (isNotMode) {
-        // Mode NOT: Tampilkan jika TIDAK COCOK
-        shouldShow = !isMatch;
-      } else {
-        // Mode Normal: Tampilkan jika COCOK
-        shouldShow = isMatch;
-      }
-    }
-
-    // Terapkan visibility
-    el.style.display = shouldShow ? 'flex' : 'none';
-    
-    if (shouldShow) visibleCount++;
-  });
-
-  // Update UI Counter Kecil
-  if (query !== "") {
-    filteredCountLabel.style.display = 'inline';
-    filteredCountLabel.innerText = `(Filtered: ${visibleCount})`;
-  } else {
-    filteredCountLabel.style.display = 'none';
-  }
+// --- Helpers Utilities ---
+function parseShopData(combinedString) {
+  if (!combinedString) return { name: "-", location: "-" };
+  const parts = combinedString.split(" - ");
+  if (parts.length === 1) return { name: parts[0], location: "-" };
+  const location = parts.pop(); 
+  const name = parts.join(" - "); 
+  return { name, location };
 }
 
-// Update fungsi renderItem sedikit agar filter tetap jalan saat item baru masuk
-// (Opsional, tapi bagus untuk UX)
-const originalRenderItem = renderItem; 
-renderItem = function(item) {
-  // Panggil render asli
-  originalRenderItem(item);
+function extractUsername(urlString) {
+  try {
+    const url = new URL(urlString);
+    const segments = url.pathname.split('/');
+    if (segments.length > 1 && segments[1]) return segments[1];
+    return "-";
+  } catch (e) { return "-"; }
+}
+
+function detectPageType(urlString) {
+  try {
+    const url = new URL(urlString);
+    const path = url.pathname;
+    if (path.startsWith('/search')) return { code: 'search', label: "🔍 Pencarian" };
+    if (/\/[\w\-\.]+\/(product|etalase)/i.test(path)) return { code: 'shop_list', label: "🏪 Toko" };
+    return { code: 'other', label: "📄 Tokopedia" };
+  } catch (e) { return { code: 'unknown', label: "?" }; }
+}
+
+function updatePageIndicator(url) {
+  if(!pageTypeIndicator) return;
   
-  // Jika sedang ada search query aktif, langsung jalankan filter ulang
-  // agar item baru yang tidak sesuai query langsung tersembunyi
-  if (searchInput.value.trim() !== "") {
-    runFilter();
+  if (!url.includes('tokopedia.com')) {
+    setIndicator("❌ Bukan Halaman Tokopedia", "#ffebee", "#c62828", "#ffcdd2");
+    if(btnScrape) btnScrape.disabled = true;
+    return;
   }
+  
+  if(btnScrape) btnScrape.disabled = false;
+  const type = detectPageType(url);
+  setIndicator(type.label, 
+    type.code === 'search' ? "#fff3e0" : (type.code === 'shop_list' ? "#e8f5e9" : "#f5f5f5"),
+    type.code === 'search' ? "#e65100" : (type.code === 'shop_list' ? "#1b5e20" : "#616161"),
+    type.code === 'search' ? "#ffe0b2" : (type.code === 'shop_list' ? "#c8e6c9" : "#e0e0e0")
+  );
+}
+
+function setIndicator(text, bg, color, border) {
+  pageTypeIndicator.innerText = text;
+  pageTypeIndicator.style.backgroundColor = bg;
+  pageTypeIndicator.style.color = color;
+  pageTypeIndicator.style.borderColor = border;
+}
+
+function updateStatus(text, color) {
+  statusMsg.innerText = text;
+  statusMsg.style.color = color;
+}
+
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+function updateAutoUI(running) {
+  btnAutoStart.disabled = running;
+  btnAutoStop.disabled = !running;
+  btnScrape.disabled = running;
+  btnExport.disabled = running;
 }

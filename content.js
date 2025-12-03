@@ -98,3 +98,77 @@ function scrapeWithHeuristics() {
 
   return products;
 }
+
+// ... (Kode sebelumnya tetap ada) ...
+
+// ==========================================
+// FITUR BARU: HIGHLIGHT ITEM DARI SIDEPANEL
+// ==========================================
+let lastHighlightedElement = null;
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // Handler pesan "highlight_item"
+  if (request.action === "highlight_item") {
+    highlightProductOnPage(request.url);
+    sendResponse({ status: "highlighted" });
+  }
+  // Jangan lupa return true untuk async response (jika diperlukan)
+  return true;
+});
+
+function highlightProductOnPage(targetUrl) {
+  // 1. Bersihkan highlight sebelumnya (jika ada)
+  if (lastHighlightedElement) {
+    lastHighlightedElement.style.outline = "";
+    lastHighlightedElement.style.backgroundColor = "";
+    lastHighlightedElement.style.transition = "";
+  }
+
+  // 2. Cari elemen berdasarkan URL link (href)
+  // Kita cari tag <a> yang href-nya persis dengan targetUrl
+  // Gunakan CSS escaping untuk karakter spesial di URL jika perlu, 
+  // tapi biasanya selector attribute value aman dengan kutip ganda.
+  const selector = `a[href="${targetUrl}"]`;
+  const anchor = document.querySelector(selector);
+
+  if (anchor) {
+    // Cari container kartu pembungkusnya (naik ke atas DOM)
+    // Gunakan konfigurasi container yang sudah ada di patterns.js atau fallback
+    const CONFIG = window.SCRAPER_CONFIG;
+    let card = null;
+    
+    if (CONFIG && CONFIG.cardContainer) {
+       // Coba cari parent yang cocok dengan selector container
+       // Note: closest() butuh selector spesifik. 
+       // Jika CONFIG.containers adalah object (search/shop), kita cek satu2
+       if (typeof CONFIG.containers === 'object') {
+          card = anchor.closest(CONFIG.containers.search) || anchor.closest(CONFIG.containers.shop);
+       } else {
+          card = anchor.closest(CONFIG.cardContainer);
+       }
+    }
+
+    // Fallback: Jika tidak ketemu container, highlight anchor-nya saja atau parent div terdekat
+    if (!card) {
+      card = anchor.closest('div'); 
+    }
+
+    if (card) {
+      // 3. Aksi Highlight
+      
+      // Scroll ke elemen (tengah layar)
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      // Beri efek visual (Border Merah Tebal & Flash Background)
+      card.style.transition = "all 0.3s ease";
+      card.style.outline = "4px solid #f94d63"; // Warna merah mencolok
+      card.style.backgroundColor = "rgba(249, 77, 99, 0.1)"; // Background merah tipis
+      
+      lastHighlightedElement = card;
+    } else {
+      console.warn("Kartu produk tidak ditemukan di DOM.");
+    }
+  } else {
+    console.warn("Link produk tidak ditemukan di halaman ini:", targetUrl);
+  }
+}
