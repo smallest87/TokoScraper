@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Tokopedia Sidepanel Scraper",
+  "version": "1.0",
+  "permissions": ["sidePanel", "scripting", "activeTab"],
+  "host_permissions": ["https://www.tokopedia.com/*"],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.tokopedia.com/*"],
+      "js": ["patterns.js", "content.js"] 
+    }
+  ]
+}

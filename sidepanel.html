@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Tokopedia Scraper</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+</head>
+<body>
+  <div class="container">
+    <h2>TokoScraper Manual</h2>
+    
+    <div class="controls">
+      <button id="btnScrape" class="btn primary">Ambil Data Layar Ini</button>
+      <button id="btnExport" class="btn success" disabled>Export CSV</button>
+    </div>
+    
+    <div class="stats">
+      <p>Total Item Unik: <span id="count">0</span></p>
+      <p id="status-msg" style="font-size: 10px; color: #666;">Menunggu perintah...</p>
+    </div>
+
+    <div id="results" class="results-area"></div>
+  </div>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
