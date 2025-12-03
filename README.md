@@ -73,7 +73,8 @@ Karena ekstensi ini bersifat custom (belum ada di Chrome Web Store), Anda perlu 
  * Klik tombol Load unpacked (pojok kiri atas).
  * Pilih folder proyek TokoScraper Anda.
  * Selesai! Ikon TokoScraper akan muncul di toolbar Chrome.
-📖 Cara Penggunaan
+
+### 📖 Cara Penggunaan
 Langkah 1: Scanning Awal
  * Buka situs Tokopedia dan lakukan pencarian produk (misal: "Mic Maono").
  * Klik ikon TokoScraper di toolbar untuk membuka Sidepanel.
